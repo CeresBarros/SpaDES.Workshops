@@ -66,12 +66,11 @@ build_site <- function (pkg = ".", path = "docs", examples = TRUE, run_dont_run 
     old <- pkgdown:::set_pkgdown_env("true")
     on.exit(pkgdown:::set_pkgdown_env(old))
     pkg <- pkgdown:::as_pkgdown(pkg)
-    path <- pkgdown:::rel_path(path, pkg$path)
-    pkgdown:::init_site(pkg, path)
-    pkgdown:::build_home(pkg, path = path, encoding = encoding)
+    path <- pkgdown:::path_abs(path, pkg$src_path)
+    pkgdown:::init_site(pkg)
+    pkgdown:::build_home(pkg)
     pkgdown:::build_reference(pkg, lazy = FALSE, examples = examples, run_dont_run = run_dont_run,
-                    mathjax = mathjax, seed = seed, path = file.path(path,
-                                                                     "reference"), depth = 1L)
+                    mathjax = mathjax, seed = seed)
     build_articles(pkg, path = file.path(path, "articles"), depth = 1L,
                    encoding = encoding, cacheRepo = cacheRepo)
     pkgdown:::build_news(pkg, path = file.path(path, "news"), depth = 1L)
@@ -91,22 +90,30 @@ build_articles <- function (pkg = ".", path = "docs/articles", depth = 1L, encod
   old <- pkgdown:::set_pkgdown_env("true")
   on.exit(pkgdown:::set_pkgdown_env(old))
   pkg <- pkgdown:::as_pkgdown(pkg)
-  path <- pkgdown:::rel_path(path, pkg$path)
-  if (!pkgdown:::has_vignettes(pkg$path)) {
-    return(invisible())
-  }
+  path <- pkgdown:::path_abs(path, pkg$src_path)
+  # if (!pkgdown:::has_vignettes(pkg$src_path)) {
+  #   return(invisible())
+  # }
   pkgdown:::rule("Building articles")
-  pkgdown:::mkdir(path)
-  pkgdown:::copy_dir(file.path(pkg$path, "vignettes"), path, exclude_matching = "rsconnect")
+  fs::dir_create(path)
+
+  # pkgdown:::dir_copy_to(pkg, file.path(pkg$src_path, "vignettes"), path)  ## Ceres: doesn't seem to work
+  file.copy(from = file.path(pkg$src_path, "vignettes"), to = path, recursive = TRUE)
+
+  ## Ceres: this is where I stopped - tried to update arguments here and in render_markdown, but no success...
+  # articles <- tibble::tibble(input = file.path(path, pkg$vignettes$file_in),
+  #                            output_file = pkg$vignettes$file_out, depth = pkg$vignettes$vig_depth +
+  #                              depth)
+
   articles <- tibble::tibble(input = file.path(path, pkg$vignettes$file_in),
-                             output_file = pkg$vignettes$file_out, depth = pkg$vignettes$vig_depth +
-                               depth)
+                             output_file = pkg$vignettes$file_out, depth = 1L)
+
   data <- list(pagetitle = "$title$")
   end <- lapply(seq(NROW(articles)), function(r) {
-    aa <- Cache(pkgdown:::render_rmd, input = asPath(articles$input[r]), output_file = asPath(articles$output_file[r]),
-          digestPathContent = TRUE,
-          depth = articles$depth[r],
-          pkg = pkg, data = data, encoding = encoding, quiet = quiet, cacheRepo = cacheRepo,
+  browser()
+      aa <- Cache(pkgdown:::render_rmarkdown, input = asPath(articles$input[r]), output = asPath(articles$output_file[r]),
+          quick = TRUE,
+          pkg = pkg, quiet = quiet, cacheRepo = cacheRepo,
           notOlderThan = notOlderThan, omitArgs = "pkg")#,
           #sideEffect = dirname(articles$input)[r])
   })
